@@ -1,0 +1,7 @@
+feeds:
+  - outlet: "연합뉴스"
+    url: "https://www.yna.co.kr/rss/news.xml"
+  - outlet: "조선일보"
+    url: "https://www.chosun.com/arc/outboundfeeds/rss/?outputType=xml"
+  - outlet: "KBS"
+    url: "https://world.kbs.co.kr/service/news_rss.htm?lang=k"

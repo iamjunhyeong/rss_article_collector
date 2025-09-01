@@ -1,0 +1,63 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: news
+      POSTGRES_PASSWORD: news
+      POSTGRES_DB: newsdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # collector:
+  #   build: .
+  #   container_name: news-collector
+  #   depends_on:
+  #     - db
+  #   env_file:
+  #     - .env
+  #   volumes:
+  #     - ./data/html:/data/html
+  #     - ./feeds.yaml:/app/feeds.yaml
+  #   restart: always
+  #   command: ["python", "rss_collector.py", "--feeds", "feeds.yaml", "--loop", "--interval", "60"]
+
+  # sentiment-worker:
+  #   build: .
+  #   container_name: news-sentiment
+  #   depends_on:
+  #     - db
+  #   env_file:
+  #     - .env
+  #   command: ["python", "sentiment_worker.py"]
+  #   ports:
+  #     - "8000:8000"   # Prometheus metrics endpoint
+  #   restart: always
+
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #   ports:
+  #     - "9090:9090"
+  #   restart: always
+
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - prometheus
+  #   volumes:
+  #     - grafana-data:/var/lib/grafana
+  #   environment:
+  #     - GF_SECURITY_ADMIN_USER=admin
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+
+volumes:
+  pgdata:
+  grafana-data:
