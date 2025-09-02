@@ -31,20 +31,20 @@ PROMPT_TEMPLATE = """
 
 ## 출력 형식 (필수, 누락 금지)
 {{
-  "categories": ["카테고리1", "카테고리2"],  # 최대 2개
+  "categories": "카테고리1",  # 반드시 하나만
   "sentiment": "감정라벨",
   "confidence": 0.0~1.0,
   "rationale": "근거 설명 (1~2문장)"
 }}
 
-## 카테고리 후보 (반드시 이 중에서만 선택)
-- 정치 (정부, 정책, 외교, 선거)
-- 사회 (사건, 사고, 노동, 교육, 범죄)
-- 경제 (기업, 금융, 산업, 무역, 주가, 물가)
-- 국제 (국제 관계, 전쟁, 외교, 해외 사건)
-- 문화 (영화, 드라마, 연예, 전통)
-- 스포츠 (야구, 축구, 농구, 올림픽, 경기 결과)
-- IT과학 (기술, 과학, 인터넷, 인공지능)
+## 카테고리 후보 (반드시 이 중에서 하나만 선택, 영어 코드 사용)
+- politics: Politics (Government, policy, diplomacy, elections)
+- society: Society (Incidents, accidents, labor, education, crime)
+- economy: Economy (Business, finance, industry, trade, stock, prices)
+- international: International (International relations, war, diplomacy, overseas events)
+- culture: Culture (Movies, drama, entertainment, tradition)
+- sports: Sports (Baseball, soccer, basketball, Olympics, game results)
+- it_science: IT & Science (Technology, science, internet, AI)
 
 ## 감정 후보 (반드시 이 중에서만 선택)
 - hope_encourage: 성취, 희망, 승리, 격려, 긍정적 메시지
@@ -59,37 +59,37 @@ PROMPT_TEMPLATE = """
 제목: "태권도 배준서, 그랑프리 챌린지 우승…5초 남기고 역전 드라마"
 본문: "한국 태권도 선수가 경기 종료 직전 역전승으로 금메달을 차지했다."
 출력:
-{{"categories": ["스포츠"], "sentiment": "hope_encourage", "confidence": 0.9, "rationale": "스포츠 경기에서의 극적인 승리를 전달하는 긍정적 기사이다."}}
+{{"categories": "sports", "sentiment": "hope_encourage", "confidence": 0.9, "rationale": "스포츠 경기에서의 극적인 승리를 전달하는 긍정적 기사이다."}}
 
 ## 예시 2
 제목: "여자농구 챔피언 BNK, 개막전서 후지쓰에 10점 차 패배"
 본문: "BNK가 개막전에서 후지쓰에 패배했다."
 출력:
-{{"categories": ["스포츠"], "sentiment": "sad_shock", "confidence": 0.85, "rationale": "스포츠 경기의 패배 소식을 전하며 실망과 아쉬움을 드러낸다."}}
+{{"categories": "sports", "sentiment": "sad_shock", "confidence": 0.85, "rationale": "스포츠 경기의 패배 소식을 전하며 실망과 아쉬움을 드러낸다."}}
 
 ## 예시 3
 제목: "대통령, 강릉 일원 재난사태 선포"
 본문: "가뭄 피해 확산을 막기 위해 강릉에 재난 사태가 선포됐다."
 출력:
-{{"categories": ["정치", "사회"], "sentiment": "neutral_factual", "confidence": 0.8, "rationale": "정부의 공식 발표를 전달하는 사실 중심 기사이다."}}
+{{"categories": "politics", "sentiment": "neutral_factual", "confidence": 0.8, "rationale": "정부의 공식 발표를 전달하는 사실 중심 기사이다."}}
 
 ## 예시 4
 제목: "삼성전자, 2분기 영업이익 12조 달성"
 본문: "삼성전자가 2분기에 12조 원의 영업이익을 기록했다."
 출력:
-{{"categories": ["경제"], "sentiment": "hope_encourage", "confidence": 0.88, "rationale": "긍정적인 실적 발표로 희망적인 분위기를 전달한다."}}
+{{"categories": "economy", "sentiment": "hope_encourage", "confidence": 0.88, "rationale": "긍정적인 실적 발표로 희망적인 분위기를 전달한다."}}
 
 ## 예시 5
 제목: "북, 러시아에 병력 파견 결정"
 본문: "북한이 러시아와의 조약 체결 직후 러시아에 병력을 파견하기로 했다."
 출력:
-{{"categories": ["국제", "정치"], "sentiment": "anxiety_crisis", "confidence": 0.85, "rationale": "국제 갈등과 군사 파병 소식으로 불안과 위기감을 조성한다."}}
+{{"categories": "international", "sentiment": "anxiety_crisis", "confidence": 0.85, "rationale": "국제 갈등과 군사 파병 소식으로 불안과 위기감을 조성한다."}}
 
 ## 예시 6
 제목: "유명 배우 신작 영화 개봉 첫날 매진"
 본문: "유명 배우의 신작 영화가 개봉 첫날 매진을 기록했다."
 출력:
-{{"categories": ["문화"], "sentiment": "hope_encourage", "confidence": 0.9, "rationale": "문화 콘텐츠의 성공을 다룬 긍정적인 기사이다."}}
+{{"categories": "culture", "sentiment": "hope_encourage", "confidence": 0.9, "rationale": "문화 콘텐츠의 성공을 다룬 긍정적인 기사이다."}}
 
 ---
 
@@ -141,7 +141,7 @@ def fetch_unlabeled_from_db(limit=10):
     with engine.begin() as conn:
         rows = conn.execute(sa.text("""
             SELECT id, link, title, summary
-            FROM articles
+            FROM news
             WHERE sentiment IS NULL
             ORDER BY crawled_at DESC
             LIMIT :limit
@@ -166,17 +166,18 @@ def attach_body(rows, csv_path="rss_news.csv"):
 def save_tag(article_link, tag):
     with engine.begin() as conn:
         conn.execute(sa.text("""
-            UPDATE articles
-            SET categories = :cats,
-                sentiment = :sent,
+            UPDATE news
+            SET category   = :cat,
+                sentiment  = :sent,
                 confidence = :conf,
-                rationale = :rat,
-                tagged_at = now()
+                rationale  = :rat,
+                tagged_at  = now()
             WHERE link = :link
         """), {
             "link": article_link,
-            "cats": json.dumps(tag.get("categories", []), ensure_ascii=False),
-            "sent": tag.get("sentiment", "neutral_factual"),
+            # ✅ enum 상수와 맞추기 위해 대문자로 변환
+            "cat": tag.get("categories", "").upper(),
+            "sent": tag.get("sentiment", "neutral_factual").upper(),
             "conf": float(tag.get("confidence", 0.0) or 0.0),
             "rat": tag.get("rationale", "")
         })
@@ -192,14 +193,14 @@ def fetch_unlabeled_from_csv(limit=10):
 def fetch_unlabeled(limit=10):
     with engine.begin() as conn:
         rows = conn.execute(sa.text("""
-            SELECT a.id, a.title, a.body
-            FROM articles a
-            LEFT JOIN article_tag t ON t.article_id = a.id
-            WHERE t.article_id IS NULL
-            ORDER BY a.created_at DESC
+            SELECT n.id, n.title, n.summary, n.link
+            FROM news n
+            WHERE n.sentiment IS NULL
+            ORDER BY n.crawled_at DESC
             LIMIT :limit
         """), {"limit": limit}).mappings().all()
-        return rows
+        return [dict(r) for r in rows]
+
 
 
 import traceback

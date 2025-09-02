@@ -3,7 +3,7 @@ import feedparser
 import requests
 from goose3 import Goose
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, UTC
 import re
 import sqlalchemy as sa
 import json
@@ -31,7 +31,7 @@ def save_articles(rows):
         for row in rows:
             # 기사 저장
             result = conn.execute(sa.text("""
-                INSERT INTO articles (outlet, feed_url, title, summary, link, published, crawled_at)
+                INSERT INTO news (outlet, feed_url, title, summary, link, published, crawled_at)
                 VALUES (:outlet, :feed_url, :title, :summary, :link, :published, :crawled_at)
                 ON CONFLICT (link) DO NOTHING
                 RETURNING id
@@ -49,20 +49,21 @@ def save_articles(rows):
             if not article_id:
                 # 이미 존재하는 경우 id 가져오기
                 article_id = conn.execute(sa.text("""
-                    SELECT id FROM articles WHERE link = :link
+                    SELECT id FROM news WHERE link = :link
                 """), {"link": row["link"]}).scalar_one()
 
-            # 이미지 저장
+            # 이미지 저장 (주의: FK는 news_id)
             for img in row.get("images", []):
                 conn.execute(sa.text("""
-                    INSERT INTO article_images (article_id, src, alt)
-                    VALUES (:article_id, :src, :alt)
+                    INSERT INTO news_image (news_id, src, alt)
+                    VALUES (:news_id, :src, :alt)
                     ON CONFLICT DO NOTHING
                 """), {
-                    "article_id": article_id,
+                    "news_id": article_id,
                     "src": img.get("src"),
                     "alt": img.get("alt", "")
                 })
+
 
 # -------------------------
 # RSS 피드 리스트
@@ -156,7 +157,7 @@ for outlet, feed_url in rss_list:
             "published": published,
             "body": body,
             "images": images,  # ← 이미지 따로 저장
-            "crawled_at": datetime.utcnow().isoformat()
+            "crawled_at": datetime.now(UTC).isoformat()
         })
         count += 1
 
