@@ -28,22 +28,30 @@ import json
 
 def save_articles(rows):
     with engine.begin() as conn:
-        for row in rows:
-            # 기사 저장
-            result = conn.execute(sa.text("""
-                INSERT INTO news (outlet, feed_url, title, summary, link, published, crawled_at)
-                VALUES (:outlet, :feed_url, :title, :summary, :link, :published, :crawled_at)
-                ON CONFLICT (link) DO NOTHING
-                RETURNING id
-            """), {
-                "outlet": row["outlet"],
-                "feed_url": row["feed_url"],
-                "title": row["title"],
-                "summary": row["summary"],
-                "link": row["link"],
-                "published": row["published"],
-                "crawled_at": row["crawled_at"],
-            })
+            for row in rows:
+                # 기사 저장
+                result = conn.execute(sa.text("""
+                    INSERT INTO news (
+                        outlet, outlet_img, feed_url, title, summary, link, published, crawled_at, like_count, emotion_rating
+                    )
+                    VALUES (
+                        :outlet, :outlet_img, :feed_url, :title, :summary, :link, :published, :crawled_at, :like_count, :emotion_rating
+                    )
+                    ON CONFLICT (link) DO NOTHING
+                    RETURNING id
+                """), {
+                    "outlet": row["outlet"],
+                    "outlet_img": "/img/khan.png",
+                    "feed_url": row["feed_url"],
+                    "title": row["title"],
+                    "summary": row["summary"],
+                    "link": row["link"],
+                    "published": row["published"],
+                    "crawled_at": row["crawled_at"],
+                    "like_count": 0,
+                    "emotion_rating": 0.0
+                })
+
 
             article_id = result.scalar_one_or_none()
             if not article_id:
@@ -52,8 +60,8 @@ def save_articles(rows):
                     SELECT id FROM news WHERE link = :link
                 """), {"link": row["link"]}).scalar_one()
 
-            # 이미지 저장 (주의: FK는 news_id)
-            for img in row.get("images", []):
+            # 이미지 저장
+            for idx, img in enumerate(row.get("images", [])):
                 conn.execute(sa.text("""
                     INSERT INTO news_image (news_id, src, alt)
                     VALUES (:news_id, :src, :alt)
@@ -63,6 +71,18 @@ def save_articles(rows):
                     "src": img.get("src"),
                     "alt": img.get("alt", "")
                 })
+
+                # 썸네일 업데이트 (news.thumbnail이 NULL일 때만)
+                if idx == 0:  # 첫 번째 이미지를 우선 thumbnail로 사용
+                    conn.execute(sa.text("""
+                        UPDATE news
+                        SET thumbnail = :thumbnail
+                        WHERE id = :id AND thumbnail IS NULL
+                    """), {
+                        "thumbnail": img.get("src"),
+                        "id": article_id
+                    })
+
 
 
 # -------------------------
@@ -121,7 +141,7 @@ def extract_body_and_images(html: str, outlet: str):
 # 크롤링 (한번 실행당 10개)
 # -------------------------
 rows = []
-max_articles = 10
+max_articles = 100
 count = 0
 
 for outlet, feed_url in rss_list:
